@@ -206,7 +206,6 @@ func (p *GatewayAPIProcessor) computeHTTPRoute(route *gatewayapi_v1alpha1.HTTPRo
 	for _, rule := range route.Spec.Rules {
 
 		var pathMatchConditions []MatchCondition
-		var services []*Service
 
 		for _, match := range rule.Matches {
 			switch match.Path.Type {
@@ -223,6 +222,8 @@ func (p *GatewayAPIProcessor) computeHTTPRoute(route *gatewayapi_v1alpha1.HTTPRo
 			routeAccessor.AddCondition(status.ConditionResolvedRefs, metav1.ConditionFalse, status.ReasonDegraded, "At least one Spec.Rules.ForwardTo must be specified.")
 			continue
 		}
+
+		var clusters []*Cluster
 
 		// Validate the ForwardTos.
 		for _, forward := range rule.ForwardTo {
@@ -246,15 +247,53 @@ func (p *GatewayAPIProcessor) computeHTTPRoute(route *gatewayapi_v1alpha1.HTTPRo
 				routeAccessor.AddCondition(status.ConditionResolvedRefs, metav1.ConditionFalse, status.ReasonDegraded, fmt.Sprintf("Service %q does not exist in namespace %q", meta.Name, meta.Namespace))
 				continue
 			}
-			services = append(services, service)
+
+			var headerPolicy *HeadersPolicy
+			for _, filter := range forward.Filters {
+				switch filter.Type {
+				case gatewayapi_v1alpha1.HTTPRouteFilterRequestHeaderModifier:
+					if filter.RequestHeaderModifier.Add != nil {
+						routeAccessor.AddCondition(status.ConditionNotImplemented, metav1.ConditionTrue, status.ReasonHTTPRouteFilterType,
+							"HTTPRoute.Spec.Rules.ForwardTo.Filters.RequestHeaderModifier.Add: Only Set and Remove are supported.")
+					}
+					var err error
+					headerPolicy, err = headersPolicyGatewayAPI(filter.RequestHeaderModifier)
+					if err != nil {
+						routeAccessor.AddCondition(status.ConditionResolvedRefs, metav1.ConditionFalse, status.ReasonDegraded, fmt.Sprintf("RequestHeadersPolicyInvalid %s on request headers", err))
+					}
+				default:
+					routeAccessor.AddCondition(status.ConditionNotImplemented, metav1.ConditionTrue, status.ReasonHTTPRouteFilterType, "HTTPRoute.Spec.Rules.ForwardTo.Filters: Only RequestHeaderModifier type is supported.")
+				}
+			}
+
+			cluster := p.cluster(headerPolicy, service)
+			clusters = append(clusters, cluster)
 		}
 
-		if len(services) == 0 {
+		if len(clusters) == 0 {
 			routeAccessor.AddCondition(status.ConditionResolvedRefs, metav1.ConditionFalse, status.ReasonDegraded, "All Spec.Rules.ForwardTos are invalid.")
 			continue
 		}
 
-		routes := p.routes(pathMatchConditions, services)
+		var headerPolicy *HeadersPolicy
+		for _, filter := range rule.Filters {
+			switch filter.Type {
+			case gatewayapi_v1alpha1.HTTPRouteFilterRequestHeaderModifier:
+				if filter.RequestHeaderModifier.Add != nil {
+					routeAccessor.AddCondition(status.ConditionNotImplemented, metav1.ConditionTrue, status.ReasonHTTPRouteFilterType,
+						"HTTPRoute.Spec.Rules.Filters.RequestHeaderModifier.Add: Only Set and Remove are supported.")
+				}
+				var err error
+				headerPolicy, err = headersPolicyGatewayAPI(filter.RequestHeaderModifier)
+				if err != nil {
+					routeAccessor.AddCondition(status.ConditionResolvedRefs, metav1.ConditionFalse, status.ReasonDegraded, fmt.Sprintf("RequestHeadersPolicyInvalid %s on request headers", err))
+				}
+			default:
+				routeAccessor.AddCondition(status.ConditionNotImplemented, metav1.ConditionTrue, status.ReasonHTTPRouteFilterType, "HTTPRoute.Spec.Rules.Filters: Only RequestHeaderModifier type is supported.")
+			}
+		}
+
+		routes := p.routes(pathMatchConditions, headerPolicy, clusters)
 		for _, vhost := range hosts {
 			vhost := p.dag.EnsureVirtualHost(ListenerName{Name: vhost, ListenerName: "ingress_http"})
 			for _, route := range routes {
@@ -273,25 +312,27 @@ func (p *GatewayAPIProcessor) computeHTTPRoute(route *gatewayapi_v1alpha1.HTTPRo
 	}
 }
 
-// routes builds a []*dag.Route for the supplied set of pathPrefixes & services.
-func (p *GatewayAPIProcessor) routes(pathMatchConditions []MatchCondition, services []*Service) []*Route {
-	var clusters []*Cluster
+// routes builds a []*dag.Route for the supplied set of pathPrefixes, headerPolicy and clusters.
+func (p *GatewayAPIProcessor) routes(pathMatchConditions []MatchCondition, headerPolicy *HeadersPolicy, clusters []*Cluster) []*Route {
 	var routes []*Route
-
-	for _, service := range services {
-		clusters = append(clusters, &Cluster{
-			Upstream: service,
-			Protocol: service.Protocol,
-		})
-	}
 
 	for _, pathMatch := range pathMatchConditions {
 		r := &Route{
 			Clusters: clusters,
 		}
 		r.PathMatchCondition = pathMatch
+		r.RequestHeadersPolicy = headerPolicy
 		routes = append(routes, r)
 	}
 
 	return routes
+}
+
+// cluster builds a *dag.Cluster for the supplied set of headerPolicy and service.
+func (p *GatewayAPIProcessor) cluster(headerPolicy *HeadersPolicy, service *Service) *Cluster {
+	return &Cluster{
+		Upstream:             service,
+		Protocol:             service.Protocol,
+		RequestHeadersPolicy: headerPolicy,
+	}
 }

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	networking_v1 "k8s.io/api/networking/v1"
+	gatewayapi_v1alpha1 "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	contour_api_v1 "github.com/projectcontour/contour/apis/projectcontour/v1"
 	"github.com/projectcontour/contour/internal/annotation"
@@ -164,6 +165,53 @@ func headersPolicyRoute(policy *contour_api_v1.HeadersPolicy, allowHostRewrite b
 	remove := sets.NewString()
 	for _, entry := range policy.Remove {
 		key := http.CanonicalHeaderKey(entry)
+		if remove.Has(key) {
+			return nil, fmt.Errorf("duplicate header removal: %q", key)
+		}
+		if msgs := validation.IsHTTPHeaderName(key); len(msgs) != 0 {
+			return nil, fmt.Errorf("invalid remove header %q: %v", key, msgs)
+		}
+		remove.Insert(key)
+	}
+	rl := remove.List()
+
+	if len(set) == 0 {
+		set = nil
+	}
+	if len(rl) == 0 {
+		rl = nil
+	}
+
+	return &HeadersPolicy{
+		Set:         set,
+		HostRewrite: hostRewrite,
+		Remove:      rl,
+	}, nil
+}
+
+// headersPolicyGatewayAPI builds a *HeaderPolicy for the supplied HTTPRequestHeaderFilter.
+// TODO: Take care about the order of operators once https://github.com/kubernetes-sigs/gateway-api/issues/480 was solved.
+func headersPolicyGatewayAPI(hf *gatewayapi_v1alpha1.HTTPRequestHeaderFilter) (*HeadersPolicy, error) {
+	set := make(map[string]string, len(hf.Set))
+	hostRewrite := ""
+	for k, v := range hf.Set {
+		key := http.CanonicalHeaderKey(k)
+		if _, ok := set[key]; ok {
+			return nil, fmt.Errorf("duplicate header addition: %q", key)
+		}
+		if key == "Host" {
+			hostRewrite = v
+			continue
+		}
+		if msgs := validation.IsHTTPHeaderName(key); len(msgs) != 0 {
+			return nil, fmt.Errorf("invalid set header %q: %v", key, msgs)
+		}
+		set[key] = escapeHeaderValue(v, nil)
+	}
+
+	remove := sets.NewString()
+	for _, k := range hf.Remove {
+		key := http.CanonicalHeaderKey(k)
 		if remove.Has(key) {
 			return nil, fmt.Errorf("duplicate header removal: %q", key)
 		}
