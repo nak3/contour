@@ -1285,6 +1285,118 @@ func TestDAGInsertGatewayAPI(t *testing.T) {
 				},
 			),
 		},
+		"Route rule with request header modifier": {
+			gateway: gatewayWithSelector,
+			objs: []interface{}{
+				kuardService,
+				&gatewayapi_v1alpha1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "basic",
+						Namespace: "projectcontour",
+						Labels: map[string]string{
+							"app":  "contour",
+							"type": "controller",
+						},
+					},
+					Spec: gatewayapi_v1alpha1.HTTPRouteSpec{
+						Hostnames: []gatewayapi_v1alpha1.Hostname{
+							"test.projectcontour.io",
+						},
+						Rules: []gatewayapi_v1alpha1.HTTPRouteRule{
+							{
+								Matches: []gatewayapi_v1alpha1.HTTPRouteMatch{
+									{
+										Path: gatewayapi_v1alpha1.HTTPPathMatch{
+											Type:  "Prefix",
+											Value: "/",
+										},
+									},
+								},
+								ForwardTo: []gatewayapi_v1alpha1.HTTPRouteForwardTo{{
+									ServiceName: pointer.StringPtr("kuard"),
+									Port:        gatewayPort(8080),
+								}},
+								Filters: []gatewayapi_v1alpha1.HTTPRouteFilter{{
+									Type: gatewayapi_v1alpha1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gatewayapi_v1alpha1.HTTPRequestHeaderFilter{
+										Set: map[string]string{"custom": "foo", "Host": "bar.com"},
+									},
+								}},
+							}},
+					},
+				},
+			},
+			want: listeners(
+				&Listener{
+					Port: 80,
+					VirtualHosts: virtualhosts(virtualhost("test.projectcontour.io",
+						&Route{
+							PathMatchCondition: prefixString("/"),
+							Clusters:           clusters(service(kuardService)),
+							RequestHeadersPolicy: &HeadersPolicy{
+								Set: map[string]string{
+									"Custom": "foo",
+								},
+								HostRewrite: "bar.com",
+							},
+						},
+					)),
+				},
+			),
+		},
+		"HTTP forward with request header modifier": {
+			gateway: gatewayWithSelector,
+			objs: []interface{}{
+				kuardService,
+				&gatewayapi_v1alpha1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "basic",
+						Namespace: "projectcontour",
+						Labels: map[string]string{
+							"app":  "contour",
+							"type": "controller",
+						},
+					},
+					Spec: gatewayapi_v1alpha1.HTTPRouteSpec{
+						Hostnames: []gatewayapi_v1alpha1.Hostname{
+							"test.projectcontour.io",
+						},
+						Rules: []gatewayapi_v1alpha1.HTTPRouteRule{
+							{
+								Matches: []gatewayapi_v1alpha1.HTTPRouteMatch{
+									{
+										Path: gatewayapi_v1alpha1.HTTPPathMatch{
+											Type:  "Prefix",
+											Value: "/",
+										},
+									},
+								},
+								ForwardTo: []gatewayapi_v1alpha1.HTTPRouteForwardTo{{
+									ServiceName: pointer.StringPtr("kuard"),
+									Port:        gatewayPort(8080),
+									Filters: []gatewayapi_v1alpha1.HTTPRouteFilter{{
+										Type: gatewayapi_v1alpha1.HTTPRouteFilterRequestHeaderModifier,
+										RequestHeaderModifier: &gatewayapi_v1alpha1.HTTPRequestHeaderFilter{
+											Set: map[string]string{"custom": "foo", "Host": "bar.com"},
+										},
+									}},
+								}},
+							}},
+					},
+				},
+			},
+			want: listeners(
+				&Listener{
+					Port: 80,
+					VirtualHosts: virtualhosts(virtualhost("test.projectcontour.io",
+						&Route{
+							PathMatchCondition: prefixString("/"),
+							Clusters:           clusterHeaders(map[string]string{"Custom": "foo"}, nil, "bar.com", service(kuardService)),
+						},
+					)),
+				},
+			),
+		},
 	}
 
 	for name, tc := range tests {
@@ -9897,6 +10009,21 @@ func routeHeaders(prefix string, requestSet map[string]string, requestRemove []s
 		Remove: responseRemove,
 	}
 	return r
+}
+
+func clusterHeaders(requestSet map[string]string, requestRemove []string, hostRewrite string, services ...*Service) (c []*Cluster) {
+	for _, s := range services {
+		c = append(c, &Cluster{
+			Upstream: s,
+			Protocol: s.Protocol,
+			RequestHeadersPolicy: &HeadersPolicy{
+				Set:         requestSet,
+				Remove:      requestRemove,
+				HostRewrite: hostRewrite,
+			},
+		})
+	}
+	return c
 }
 
 func clusters(services ...*Service) (c []*Cluster) {
