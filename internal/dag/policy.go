@@ -28,6 +28,7 @@ import (
 	"github.com/projectcontour/contour/internal/annotation"
 	"github.com/projectcontour/contour/internal/timeout"
 	"github.com/sirupsen/logrus"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -194,17 +195,18 @@ func headersPolicyRoute(policy *contour_api_v1.HeadersPolicy, allowHostRewrite b
 func headersPolicyGatewayAPI(hf *gatewayapi_v1alpha1.HTTPRequestHeaderFilter) (*HeadersPolicy, error) {
 	set := make(map[string]string, len(hf.Set))
 	hostRewrite := ""
+	errlist := []error{}
 	for k, v := range hf.Set {
 		key := http.CanonicalHeaderKey(k)
 		if _, ok := set[key]; ok {
-			return nil, fmt.Errorf("duplicate header addition: %q", key)
+			errlist = append(errlist, fmt.Errorf("duplicate header addition: %q", key))
 		}
 		if key == "Host" {
 			hostRewrite = v
 			continue
 		}
 		if msgs := validation.IsHTTPHeaderName(key); len(msgs) != 0 {
-			return nil, fmt.Errorf("invalid set header %q: %v", key, msgs)
+			errlist = append(errlist, fmt.Errorf("invalid set header %q: %v", key, msgs))
 		}
 		set[key] = escapeHeaderValue(v, nil)
 	}
@@ -213,10 +215,10 @@ func headersPolicyGatewayAPI(hf *gatewayapi_v1alpha1.HTTPRequestHeaderFilter) (*
 	for _, k := range hf.Remove {
 		key := http.CanonicalHeaderKey(k)
 		if remove.Has(key) {
-			return nil, fmt.Errorf("duplicate header removal: %q", key)
+			errlist = append(errlist, fmt.Errorf("duplicate header removal: %q", key))
 		}
 		if msgs := validation.IsHTTPHeaderName(key); len(msgs) != 0 {
-			return nil, fmt.Errorf("invalid remove header %q: %v", key, msgs)
+			errlist = append(errlist, fmt.Errorf("invalid remove header %q: %v", key, msgs))
 		}
 		remove.Insert(key)
 	}
@@ -233,7 +235,7 @@ func headersPolicyGatewayAPI(hf *gatewayapi_v1alpha1.HTTPRequestHeaderFilter) (*
 		Set:         set,
 		HostRewrite: hostRewrite,
 		Remove:      rl,
-	}, nil
+	}, utilerrors.NewAggregate(errlist)
 }
 
 func escapeHeaderValue(value string, dynamicHeaders map[string]string) string {
