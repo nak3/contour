@@ -69,7 +69,7 @@ spec:
       filters:
       - type: RequestHeaderModifier
         requestHeaderModifier:
-          add:
+          set:
             Host: rewritten.com
       forwardTo:
       - serviceName: echo-header-filter
