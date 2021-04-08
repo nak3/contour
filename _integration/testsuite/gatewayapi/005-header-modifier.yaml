@@ -52,7 +52,6 @@ spec:
 
 ---
 
-apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
 metadata:
   name: http-filter-1
@@ -60,7 +59,7 @@ metadata:
     app: filter
 spec:
   hostnames:
-    - prefilter.projectcontour.io
+    - hostrewrite.projectcontour.io
   rules:
     - matches:
       - path:
@@ -69,10 +68,8 @@ spec:
       filters:
       - type: RequestHeaderModifier
         requestHeaderModifier:
-          set:
-            My-Header: Foo
-          remove:
-            - Other-Header
+          add:
+            Host: rewritten.com
       forwardTo:
       - serviceName: echo-header-filter
         port: 80
@@ -86,23 +83,20 @@ import data.contour.http.response
 import data.builtin.result
 
 Response := client.Get({
-  "method": "GET",
   "url": url.http("/"),
   "headers": {
-    "Host": "prefilter.projectcontour.io",
-    "Other-Header": "Remove",
-    "User-Agent": client.ua("request-header-filter"),
-  }
+    "Host": "hostrewrite.projectcontour.io",
+    "User-Agent": client.ua("host-rewrite-test"),
+  },
 })
 
 check_for_status_code [msg] {
   msg := expect.response_status_is(Response, 200)
 }
 
-check_for_host_header_set [msg] {
-  msg := expect.response_header_is(Response, "My-Header", "Foo")
-}
-
-check_for_host_header_remove [msg] {
-  msg := expect.response_header_does_not_have(Response, "Other-Header")
+check_for_host_header [msg] {
+  response_body := response.body(Response)
+  response_host := object.get(response_body, "Host", "")
+  response_host != "rewritten.com"
+  msg := result.Errorf("expected response host %s to be rewritten to rewritten.com", [response_host])
 }

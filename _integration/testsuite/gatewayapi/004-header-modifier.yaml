@@ -32,6 +32,26 @@ $apply:
 
 ---
 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingress-conformance-echo
+$apply:
+  fixture:
+    as: echo-header-nofilter
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-conformance-echo
+$apply:
+  fixture:
+    as: echo-header-nofilter
+
+---
+
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
@@ -60,21 +80,28 @@ metadata:
     app: filter
 spec:
   hostnames:
-    - prefilter.projectcontour.io
+    - postfilter.projectcontour.io
   rules:
     - matches:
       - path:
           type: Prefix
-          value: /
-      filters:
-      - type: RequestHeaderModifier
-        requestHeaderModifier:
-          set:
-            My-Header: Foo
-          remove:
-            - Other-Header
+          value: /filter
       forwardTo:
       - serviceName: echo-header-filter
+        port: 80
+        filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+              My-Header: Foo
+            remove:
+              - Other-Header
+    - matches:
+      - path:
+          type: Prefix
+          value: /nofilter
+      forwardTo:
+      - serviceName: echo-header-nofilter
         port: 80
 
 ---
@@ -87,9 +114,9 @@ import data.builtin.result
 
 Response := client.Get({
   "method": "GET",
-  "url": url.http("/"),
+  "url": url.http("/filter"),
   "headers": {
-    "Host": "prefilter.projectcontour.io",
+    "Host": "postfilter.projectcontour.io",
     "Other-Header": "Remove",
     "User-Agent": client.ua("request-header-filter"),
   }
@@ -99,10 +126,48 @@ check_for_status_code [msg] {
   msg := expect.response_status_is(Response, 200)
 }
 
+check_for_service_routing [msg] {
+  msg := expect.response_service_is(Response, "echo-header-filter")
+}
+
 check_for_host_header_set [msg] {
   msg := expect.response_header_is(Response, "My-Header", "Foo")
 }
 
 check_for_host_header_remove [msg] {
   msg := expect.response_header_does_not_have(Response, "Other-Header")
+}
+
+---
+
+import data.contour.http.client
+import data.contour.http.client.url
+import data.contour.http.expect
+import data.contour.http.response
+import data.builtin.result
+
+Response := client.Get({
+  "method": "GET",
+  "url": url.http("/nofilter"),
+  "headers": {
+    "Host": "postfilter.projectcontour.io",
+    "Other-Header": "Exist",
+    "User-Agent": client.ua("request-header-filter"),
+  }
+})
+
+check_for_status_code [msg] {
+  msg := expect.response_status_is(Response, 200)
+}
+
+check_for_service_routing [msg] {
+  msg := expect.response_service_is(Response, "echo-header-nofilter")
+}
+
+check_for_host_header_set [msg] {
+  msg := expect.response_header_is(Response, "Other-Header", "Exist")
+}
+
+check_for_host_header_remove [msg] {
+  msg := expect.response_header_does_not_have(Response, "My-Header")
 }
