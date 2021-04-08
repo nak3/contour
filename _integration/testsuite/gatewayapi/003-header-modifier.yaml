@@ -233,7 +233,7 @@ Response := client.Get({
   "url": url.http("/nofilter"),
   "headers": {
     "Host": "postfilter.projectcontour.io",
-    "Other-Header": "Remove",
+    "Other-Header": "Exist",
     "User-Agent": client.ua("request-header-filter"),
   }
 })
@@ -247,11 +247,11 @@ check_for_service_routing [msg] {
 }
 
 check_for_host_header_set [msg] {
-  msg := expect.response_header_does_not_have(Response, "Other-Header", "Remove")
+  msg := expect.response_header_is(Response, "Other-Header", "Exist")
 }
 
 check_for_host_header_remove [msg] {
-  msg := expect.response_header_is(Response, "My-Header")
+  msg := expect.response_header_does_not_have(Response, "My-Header")
 }
 
 ---
