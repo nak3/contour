@@ -99,62 +99,62 @@ spec:
 
 ---
 
-apiVersion: networking.x-k8s.io/v1alpha1
-kind: HTTPRoute
-metadata:
-  name: http-filter-2
-  labels:
-    app: filter
-spec:
-  hostnames:
-    - postfilter.projectcontour.io
-  rules:
-    - matches:
-      - path:
-          type: Prefix
-          value: /filter
-      forwardTo:
-      - serviceName: echo-header-filter
-        port: 80
-        filters:
-        - type: RequestHeaderModifier
-          requestHeaderModifier:
-            set:
-              My-Header: Foo
-            remove:
-              - Other-Header
-    - matches:
-      - path:
-          type: Prefix
-          value: /nofilter
-      forwardTo:
-      - serviceName: echo-header-nofilter
-        port: 80
+#apiVersion: networking.x-k8s.io/v1alpha1
+#kind: HTTPRoute
+#metadata:
+#  name: http-filter-2
+#  labels:
+#    app: filter
+#spec:
+#  hostnames:
+#    - postfilter.projectcontour.io
+#  rules:
+#    - matches:
+#      - path:
+#          type: Prefix
+#          value: /filter
+#      forwardTo:
+#      - serviceName: echo-header-filter
+#        port: 80
+#        filters:
+#        - type: RequestHeaderModifier
+#          requestHeaderModifier:
+#            set:
+#              My-Header: Foo
+#            remove:
+#              - Other-Header
+#    - matches:
+#      - path:
+#          type: Prefix
+#          value: /nofilter
+#      forwardTo:
+#      - serviceName: echo-header-nofilter
+#        port: 80
 
 ---
 
-apiVersion: networking.x-k8s.io/v1alpha1
-kind: HTTPRoute
-metadata:
-  name: http-filter-3
-  labels:
-    app: filter
-spec:
-  hostnames:
-    - hostrewrite.projectcontour.io
-  rules:
-    - matches:
-      - path:
-          type: Prefix
-          value: /
-      filters:
-      - type: RequestHeaderModifier
-        requestHeaderModifier:
-          add:
-            Host: rewritten.com
-      forwardTo:
-      - serviceName: echo-header-exact
-        port: 80
+#apiVersion: networking.x-k8s.io/v1alpha1
+#kind: HTTPRoute
+#metadata:
+#  name: http-filter-3
+#  labels:
+#    app: filter
+#spec:
+#  hostnames:
+#    - hostrewrite.projectcontour.io
+#  rules:
+#    - matches:
+#      - path:
+#          type: Prefix
+#          value: /
+#      filters:
+#      - type: RequestHeaderModifier
+#        requestHeaderModifier:
+#          add:
+#            Host: rewritten.com
+#      forwardTo:
+#      - serviceName: echo-header-exact
+#        port: 80
 
 ---
 
@@ -192,89 +192,89 @@ check_for_host_header_remove [msg] {
   msg := result.Errorf("response header for other-header was set to %s", [response_header])
 }
 
----
-
-import data.contour.http.client
-import data.contour.http.client.url
-import data.contour.http.expect
-import data.contour.http.response
-import data.builtin.result
-
-cases := {
-  { "path": "filter", "set_value": "Foo", "remove_value": "", "status": 200, "service": "echo-header-filter" },
-  { "path": "nofilter", "set_value": "Foo", "remove_value": "Remove", "status": 200, "service": "echo-header-nofilter" },
-}
-
-requests[{ "req": req, "wanted_status": status, "wanted_service": service, "wanted_set_header": set_header, "wanted_rm_header": rm_header }] {
-  case := cases[_]
-
-  req := {
-    "method": "GET",
-    "url": url.http(sprintf("/%s", [case.path])),
-    "headers": {
-      "Host": "postfilter.projectcontour.io",
-      "Other-Header": "Remove",
-      "User-Agent": client.ua("request-header-filter"),
-    }
-  }
-
-  set_header := case.set_value
-  rm_header := case.remove_value
-  status := case.status
-  service := case.service
-}
-
-check_for_status_code [msg] {
-  req := requests[_]
-  resp := http.send(req.req)
-  msg := expect.response_status_is(resp, req.wanted_status)
-}
-
-check_for_service_routing [msg] {
-  req := requests[_]
-  resp := http.send(req.req)
-  msg := expect.response_service_is(resp, req.wanted_service)
-}
-
-check_for_host_header_set [msg] {
-  req := requests[_]
-  response_body := response.body(req.req)
-  response_header := object.get(response_body, "My-Header", "")
-  response_header != req.wanted_set_header
-  msg := result.Errorf("response header for my-header was set to %s", [response_header])
-}
-
-check_for_host_header_remove [msg] {
-  req := requests[_]
-  response_body := response.body(req.req)
-  response_header := object.get(response_body, "Other-Header", "")
-  response_header != req.wanted_rm_header
-  msg := result.Errorf("response header for other-header was set to %s", [response_header])
-}
-
----
-
-import data.contour.http.client
-import data.contour.http.client.url
-import data.contour.http.expect
-import data.contour.http.response
-import data.builtin.result
-
-Response := client.Get({
-  "url": url.http("/echo"),
-  "headers": {
-    "Host": "hostrewrite.projectcontour.io",
-    "User-Agent": client.ua("host-rewrite-test"),
-  },
-})
-
-check_for_status_code [msg] {
-  msg := expect.response_status_is(Response, 200)
-}
-
-check_for_host_header [msg] {
-  response_body := response.body(Response)
-  response_host := object.get(response_body, "Host", "")
-  response_host != "rewritten.com"
-  msg := result.Errorf("expected response host %s to be rewritten to rewritten.com", [response_host])
-}
+#---
+#
+#import data.contour.http.client
+#import data.contour.http.client.url
+#import data.contour.http.expect
+#import data.contour.http.response
+#import data.builtin.result
+#
+#cases := {
+#  { "path": "filter", "set_value": "Foo", "remove_value": "", "status": 200, "service": "echo-header-filter" },
+#  { "path": "nofilter", "set_value": "Foo", "remove_value": "Remove", "status": 200, "service": "echo-header-nofilter" },
+#}
+#
+#requests[{ "req": req, "wanted_status": status, "wanted_service": service, "wanted_set_header": set_header, "wanted_rm_header": rm_header }] {
+#  case := cases[_]
+#
+#  req := {
+#    "method": "GET",
+#    "url": url.http(sprintf("/%s", [case.path])),
+#    "headers": {
+#      "Host": "postfilter.projectcontour.io",
+#      "Other-Header": "Remove",
+#      "User-Agent": client.ua("request-header-filter"),
+#    }
+#  }
+#
+#  set_header := case.set_value
+#  rm_header := case.remove_value
+#  status := case.status
+#  service := case.service
+#}
+#
+#check_for_status_code [msg] {
+#  req := requests[_]
+#  resp := http.send(req.req)
+#  msg := expect.response_status_is(resp, req.wanted_status)
+#}
+#
+#check_for_service_routing [msg] {
+#  req := requests[_]
+#  resp := http.send(req.req)
+#  msg := expect.response_service_is(resp, req.wanted_service)
+#}
+#
+#check_for_host_header_set [msg] {
+#  req := requests[_]
+#  response_body := response.body(req.req)
+#  response_header := object.get(response_body, "My-Header", "")
+#  response_header != req.wanted_set_header
+#  msg := result.Errorf("response header for my-header was set to %s", [response_header])
+#}
+#
+#check_for_host_header_remove [msg] {
+#  req := requests[_]
+#  response_body := response.body(req.req)
+#  response_header := object.get(response_body, "Other-Header", "")
+#  response_header != req.wanted_rm_header
+#  msg := result.Errorf("response header for other-header was set to %s", [response_header])
+#}
+#
+#---
+#
+#import data.contour.http.client
+#import data.contour.http.client.url
+#import data.contour.http.expect
+#import data.contour.http.response
+#import data.builtin.result
+#
+#Response := client.Get({
+#  "url": url.http("/echo"),
+#  "headers": {
+#    "Host": "hostrewrite.projectcontour.io",
+#    "User-Agent": client.ua("host-rewrite-test"),
+#  },
+#})
+#
+#check_for_status_code [msg] {
+#  msg := expect.response_status_is(Response, 200)
+#}
+#
+#check_for_host_header [msg] {
+#  response_body := response.body(Response)
+#  response_host := object.get(response_body, "Host", "")
+#  response_host != "rewritten.com"
+#  msg := result.Errorf("expected response host %s to be rewritten to rewritten.com", [response_host])
+#}
