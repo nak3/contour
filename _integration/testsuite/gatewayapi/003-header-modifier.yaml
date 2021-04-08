@@ -179,17 +179,11 @@ check_for_status_code [msg] {
 }
 
 check_for_host_header_set [msg] {
-  response_body := response.body(Response)
-  response_header := object.get(response_body, "My-Header", "")
-  response_header != "Foo"
-  msg := result.Errorf("response header for my-header was set to %s", [response_header])
+  msg := expect.response_header_is(Response, "My-Header", "Foo")
 }
 
 check_for_host_header_remove [msg] {
-  response_body := response.body(Response)
-  response_header := object.get(response_body, "Other-Header", "")
-  response_header != ""
-  msg := result.Errorf("response header for other-header was set to %s", [response_header])
+  msg := expect.response_header_is(Response, "Other-Header", "")
 }
 
 #---
