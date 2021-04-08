@@ -96,8 +96,5 @@ check_for_status_code [msg] {
 }
 
 check_for_host_header [msg] {
-  response_body := response.body(Response)
-  response_host := object.get(response_body, "Host", "")
-  response_host != "rewritten.com"
-  msg := result.Errorf("expected response host %s to be rewritten to rewritten.com", [response_host])
+  msg := expect.response_header_is(Response, "Host", "rewritten.com")
 }
