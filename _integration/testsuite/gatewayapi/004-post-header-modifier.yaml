@@ -92,7 +92,7 @@ spec:
         filters:
         - type: RequestHeaderModifier
           requestHeaderModifier:
-            set:
+            add:
               My-Header: Foo
             remove:
               - Other-Header
@@ -130,7 +130,7 @@ check_for_service_routing [msg] {
   msg := expect.response_service_is(Response, "echo-header-filter")
 }
 
-check_for_host_header_set [msg] {
+check_for_host_header_add [msg] {
   msg := expect.response_header_is(Response, "My-Header", "Foo")
 }
 
@@ -164,7 +164,7 @@ check_for_service_routing [msg] {
   msg := expect.response_service_is(Response, "echo-header-nofilter")
 }
 
-check_for_host_header_set [msg] {
+check_for_host_header_add [msg] {
   msg := expect.response_header_is(Response, "Other-Header", "Exist")
 }
 

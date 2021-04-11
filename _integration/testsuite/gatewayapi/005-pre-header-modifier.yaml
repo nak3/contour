@@ -69,7 +69,7 @@ spec:
       filters:
       - type: RequestHeaderModifier
         requestHeaderModifier:
-          set:
+          add:
             My-Header: Foo
           remove:
             - Other-Header
@@ -99,7 +99,7 @@ check_for_status_code [msg] {
   msg := expect.response_status_is(Response, 200)
 }
 
-check_for_host_header_set [msg] {
+check_for_host_header_add [msg] {
   msg := expect.response_header_is(Response, "My-Header", "Foo")
 }
 

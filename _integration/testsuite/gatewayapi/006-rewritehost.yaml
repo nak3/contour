@@ -65,16 +65,27 @@ spec:
     - matches:
       - path:
           type: Prefix
-          value: /
+          value: /pre
       filters:
       - type: RequestHeaderModifier
         requestHeaderModifier:
-          set:
-            Host: rewritten.com
+          add:
+            Host: prerewritten.com
       forwardTo:
       - serviceName: echo-header-filter
         port: 80
-
+    - matches:
+      - path:
+          type: Prefix
+          value: /post
+      forwardTo:
+      - serviceName: echo-header-filter
+        port: 80
+        filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            add:
+              Host: postrewritten.com
 ---
 
 import data.contour.http.client
@@ -84,7 +95,7 @@ import data.contour.http.response
 import data.builtin.result
 
 Response := client.Get({
-  "url": url.http("/"),
+  "url": url.http("/pre"),
   "headers": {
     "Host": "hostrewrite.projectcontour.io",
     "User-Agent": client.ua("host-rewrite-test"),
@@ -98,6 +109,33 @@ check_for_status_code [msg] {
 check_for_host_header [msg] {
   response_body := response.body(Response)
   response_host := object.get(response_body, "host", "")
-  response_host != "rewritten.com"
-  msg := result.Errorf("expected response host %s to be rewritten to rewritten.com", [response_host])
+  response_host != "prerewritten.com"
+  msg := result.Errorf("expected response host %s to be rewritten to prerewritten.com", [response_host])
+}
+
+---
+
+import data.contour.http.client
+import data.contour.http.client.url
+import data.contour.http.expect
+import data.contour.http.response
+import data.builtin.result
+
+Response := client.Get({
+  "url": url.http("/post"),
+  "headers": {
+    "Host": "hostrewrite.projectcontour.io",
+    "User-Agent": client.ua("host-rewrite-test"),
+  },
+})
+
+check_for_status_code [msg] {
+  msg := expect.response_status_is(Response, 200)
+}
+
+check_for_host_header [msg] {
+  response_body := response.body(Response)
+  response_host := object.get(response_body, "host", "")
+  response_host != "postrewritten.com"
+  msg := result.Errorf("expected response host %s to be rewritten to postrewritten.com", [response_host])
 }
