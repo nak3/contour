@@ -278,10 +278,6 @@ func (p *GatewayAPIProcessor) computeHTTPRoute(route *gatewayapi_v1alpha1.HTTPRo
 			for _, filter := range forward.Filters {
 				switch filter.Type {
 				case gatewayapi_v1alpha1.HTTPRouteFilterRequestHeaderModifier:
-					if filter.RequestHeaderModifier.Set != nil {
-						routeAccessor.AddCondition(status.ConditionNotImplemented, metav1.ConditionTrue, status.ReasonHTTPRouteFilterType,
-							"HTTPRoute.Spec.Rules.ForwardTo.Filters.RequestHeaderModifier.Set: Only Add and Remove are supported.")
-					}
 					var err error
 					headerPolicy, err = headersPolicyGatewayAPI(filter.RequestHeaderModifier)
 					if err != nil {
@@ -300,10 +296,6 @@ func (p *GatewayAPIProcessor) computeHTTPRoute(route *gatewayapi_v1alpha1.HTTPRo
 		for _, filter := range rule.Filters {
 			switch filter.Type {
 			case gatewayapi_v1alpha1.HTTPRouteFilterRequestHeaderModifier:
-				if filter.RequestHeaderModifier.Set != nil {
-					routeAccessor.AddCondition(status.ConditionNotImplemented, metav1.ConditionTrue, status.ReasonHTTPRouteFilterType,
-						"HTTPRoute.Spec.Rules.Filters.RequestHeaderModifier.Set: Only Add and Remove are supported.")
-				}
 				var err error
 				headerPolicy, err = headersPolicyGatewayAPI(filter.RequestHeaderModifier)
 				if err != nil {

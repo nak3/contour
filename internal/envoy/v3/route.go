@@ -270,6 +270,7 @@ func weightedClusters(clusters []*dag.Cluster) *envoy_route_v3.WeightedCluster {
 		}
 		if cluster.RequestHeadersPolicy != nil {
 			c.RequestHeadersToAdd = HeaderValueList(cluster.RequestHeadersPolicy.Set, false)
+			c.RequestHeadersToAdd = append(c.RequestHeadersToAdd, HeaderValueList(cluster.RequestHeadersPolicy.Add, true)...)
 			c.RequestHeadersToRemove = cluster.RequestHeadersPolicy.Remove
 		}
 		if cluster.ResponseHeadersPolicy != nil {

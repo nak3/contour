@@ -193,10 +193,10 @@ func headersPolicyRoute(policy *contour_api_v1.HeadersPolicy, allowHostRewrite b
 // headersPolicyGatewayAPI builds a *HeaderPolicy for the supplied HTTPRequestHeaderFilter.
 // TODO: Take care about the order of operators once https://github.com/kubernetes-sigs/gateway-api/issues/480 was solved.
 func headersPolicyGatewayAPI(hf *gatewayapi_v1alpha1.HTTPRequestHeaderFilter) (*HeadersPolicy, error) {
-	set := make(map[string]string, len(hf.Set))
+	set, add := make(map[string]string, len(hf.Set)), make(map[string]string, len(hf.Add))
 	hostRewrite := ""
 	errlist := []error{}
-	for k, v := range hf.Add {
+	for k, v := range hf.Set {
 		key := http.CanonicalHeaderKey(k)
 		if _, ok := set[key]; ok {
 			errlist = append(errlist, fmt.Errorf("duplicate header addition: %q", key))
@@ -209,6 +209,16 @@ func headersPolicyGatewayAPI(hf *gatewayapi_v1alpha1.HTTPRequestHeaderFilter) (*
 			errlist = append(errlist, fmt.Errorf("invalid set header %q: %v", key, msgs))
 		}
 		set[key] = escapeHeaderValue(v, nil)
+	}
+	for k, v := range hf.Add {
+		key := http.CanonicalHeaderKey(k)
+		if _, ok := add[key]; ok {
+			errlist = append(errlist, fmt.Errorf("duplicate header addition: %q", key))
+		}
+		if msgs := validation.IsHTTPHeaderName(key); len(msgs) != 0 {
+			errlist = append(errlist, fmt.Errorf("invalid add header %q: %v", key, msgs))
+		}
+		add[key] = escapeHeaderValue(v, nil)
 	}
 
 	remove := sets.NewString()
@@ -232,6 +242,7 @@ func headersPolicyGatewayAPI(hf *gatewayapi_v1alpha1.HTTPRequestHeaderFilter) (*
 	}
 
 	return &HeadersPolicy{
+		Add:         add,
 		Set:         set,
 		HostRewrite: hostRewrite,
 		Remove:      rl,
