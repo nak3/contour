@@ -72,7 +72,7 @@ spec:
           add:
             My-Header: Foo
           set:
-            Replaced-Header: Bar
+            Replace-Header: Bar
           remove:
             - Other-Header
       forwardTo:
