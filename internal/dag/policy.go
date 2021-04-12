@@ -215,6 +215,10 @@ func headersPolicyGatewayAPI(hf *gatewayapi_v1alpha1.HTTPRequestHeaderFilter) (*
 		if _, ok := add[key]; ok {
 			errlist = append(errlist, fmt.Errorf("duplicate header addition: %q", key))
 		}
+		if key == "Host" {
+			hostRewrite = v
+			continue
+		}
 		if msgs := validation.IsHTTPHeaderName(key); len(msgs) != 0 {
 			errlist = append(errlist, fmt.Errorf("invalid add header %q: %v", key, msgs))
 		}
