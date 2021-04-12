@@ -206,7 +206,6 @@ func (v *routeVisitor) onSecureVirtualHost(svh *dag.SecureVirtualHost) {
 		}
 
 		if route.RequestHeadersPolicy != nil {
-			rt.RequestHeadersToAdd = envoy_v3.HeaderValueList(route.RequestHeadersPolicy.Set, false)
 			rt.RequestHeadersToAdd = append(envoy_v3.HeaderValueList(route.RequestHeadersPolicy.Set, false), envoy_v3.HeaderValueList(route.RequestHeadersPolicy.Add, true)...)
 			rt.RequestHeadersToRemove = route.RequestHeadersPolicy.Remove
 		}
