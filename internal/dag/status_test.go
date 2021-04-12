@@ -2946,7 +2946,7 @@ func TestGatewayAPIDAGStatus(t *testing.T) {
 		}},
 	})
 
-	run(t, "HTTPRouteFilterRequestMirror.set not yet supported for httproute rule", testcase{
+	run(t, "RequestHeaderModifier.set not yet supported for httproute rule", testcase{
 		objs: []interface{}{
 			gateway,
 			kuardService,
@@ -2976,7 +2976,7 @@ func TestGatewayAPIDAGStatus(t *testing.T) {
 						Filters: []gatewayapi_v1alpha1.HTTPRouteFilter{{
 							Type: gatewayapi_v1alpha1.HTTPRouteFilterRequestHeaderModifier,
 							RequestHeaderModifier: &gatewayapi_v1alpha1.HTTPRequestHeaderFilter{
-								Add: map[string]string{"custom": "foo", "Host": "bar.com"}, // Add is not supported yet.
+								Set: map[string]string{"custom": "foo", "Host": "bar.com"}, // Add is not supported yet.
 							},
 						}},
 					}},
@@ -2986,7 +2986,7 @@ func TestGatewayAPIDAGStatus(t *testing.T) {
 			Type:    string(status.ConditionNotImplemented),
 			Status:  contour_api_v1.ConditionTrue,
 			Reason:  string(status.ReasonHTTPRouteFilterType),
-			Message: "HTTPRoute.Spec.Rules.Filters.RequestHeaderModifier.Add: Only Set and Remove are supported.",
+			Message: "HTTPRoute.Spec.Rules.Filters.RequestHeaderModifier.Set: Only Add and Remove are supported.",
 		}, {
 			Type:    string(gatewayapi_v1alpha1.ConditionRouteAdmitted),
 			Status:  contour_api_v1.ConditionFalse,
@@ -3041,7 +3041,7 @@ func TestGatewayAPIDAGStatus(t *testing.T) {
 		}},
 	})
 
-	run(t, "HTTPRouteFilterRequestMirror.Set not yet supported for httproute forwardto", testcase{
+	run(t, "HTTPRouteFilterRequestModifier.Set not yet supported for httproute forwardto", testcase{
 		objs: []interface{}{
 			gateway,
 			kuardService,
