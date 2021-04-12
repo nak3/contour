@@ -94,6 +94,7 @@ spec:
           requestHeaderModifier:
             add:
               My-Header: Foo
+              Replace-Header: Bar
             remove:
               - Other-Header
     - matches:
@@ -118,6 +119,7 @@ Response := client.Get({
   "headers": {
     "Host": "postfilter.projectcontour.io",
     "Other-Header": "Remove",
+    "Replace-Header": "Tobe-Replaced",
     "User-Agent": client.ua("request-header-filter"),
   }
 })
@@ -136,6 +138,10 @@ check_for_host_header_add [msg] {
 
 check_for_host_header_remove [msg] {
   msg := expect.response_header_does_not_have(Response, "Other-Header")
+}
+
+check_for_host_header_set [msg] {
+  msg := expect.response_header_is(Response, "Replace-Header", "Tobe-Replaced")
 }
 
 ---
