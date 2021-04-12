@@ -1319,7 +1319,7 @@ func TestDAGInsertGatewayAPI(t *testing.T) {
 								Filters: []gatewayapi_v1alpha1.HTTPRouteFilter{{
 									Type: gatewayapi_v1alpha1.HTTPRouteFilterRequestHeaderModifier,
 									RequestHeaderModifier: &gatewayapi_v1alpha1.HTTPRequestHeaderFilter{
-										Set: map[string]string{"custom": "foo", "Host": "bar.com"},
+										Add: map[string]string{"custom": "foo", "Host": "bar.com"},
 									},
 								}},
 							}},
@@ -1377,7 +1377,7 @@ func TestDAGInsertGatewayAPI(t *testing.T) {
 									Filters: []gatewayapi_v1alpha1.HTTPRouteFilter{{
 										Type: gatewayapi_v1alpha1.HTTPRouteFilterRequestHeaderModifier,
 										RequestHeaderModifier: &gatewayapi_v1alpha1.HTTPRequestHeaderFilter{
-											Set: map[string]string{"custom": "foo", "Host": "bar.com"},
+											Add: map[string]string{"custom": "foo", "Host": "bar.com"},
 										},
 									}},
 								}},

@@ -196,7 +196,7 @@ func headersPolicyGatewayAPI(hf *gatewayapi_v1alpha1.HTTPRequestHeaderFilter) (*
 	set := make(map[string]string, len(hf.Set))
 	hostRewrite := ""
 	errlist := []error{}
-	for k, v := range hf.Set {
+	for k, v := range hf.Add {
 		key := http.CanonicalHeaderKey(k)
 		if _, ok := set[key]; ok {
 			errlist = append(errlist, fmt.Errorf("duplicate header addition: %q", key))
